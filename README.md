@@ -1,5 +1,12 @@
 # mrzlane
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+[![Status](https://img.shields.io/badge/status-beta-orange.svg)](#)
+[![Standard](https://img.shields.io/badge/MRZ-ICAO%209303-informational.svg)](https://www.icao.int/publications/pages/publication.aspx?docnum=9303)
+[![Offline](https://img.shields.io/badge/runtime-offline%20CPU-success.svg)](#)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
+
 MRZ-first OCR for passports and ID documents. It reads the Machine Readable
 Zone, validates it against its own check digits, and cross-checks the printed
 fields — so every value it returns as confirmed is backed by at least one
@@ -146,6 +153,16 @@ python -m pytest tests/
 ```
 
 Tests use the public ICAO 9303 specimen data only.
+
+## Contributing
+
+Contributions are welcome — bug reports, new document types, accuracy
+improvements, and additional language support. Please:
+
+- Open an issue to discuss substantial changes before a pull request.
+- Keep tests passing (`python -m pytest tests/`) and add tests for new behaviour.
+- Never include real document images or personal data in issues, tests, or
+  commits. Use synthetic or ICAO specimen data only.
 
 ## License
 
