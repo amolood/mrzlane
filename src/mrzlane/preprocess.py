@@ -10,8 +10,28 @@ import cv2
 import numpy as np
 
 
+# Upper bound on decoded pixels (~48 MP). A decoded image beyond this is
+# downscaled to fit before any processing, so a crafted tiny-but-huge-resolution
+# file cannot exhaust memory downstream.
+MAX_PIXELS = 48_000_000
+MAX_ASPECT_RATIO = 10.0
+
+
+def _clamp_decoded(img: np.ndarray) -> np.ndarray:
+    h, w = img.shape[:2]
+    if min(h, w) == 0:
+        raise ValueError("Degenerate image dimensions.")
+    if max(h, w) / min(h, w) > MAX_ASPECT_RATIO:
+        raise ValueError("Extreme aspect ratio.")
+    if h * w > MAX_PIXELS:
+        scale = (MAX_PIXELS / (h * w)) ** 0.5
+        img = cv2.resize(img, (max(1, int(w * scale)), max(1, int(h * scale))),
+                         interpolation=cv2.INTER_AREA)
+    return img
+
+
 def load_bgr(path_or_bytes) -> np.ndarray:
-    """Load an image (path or raw bytes) as a BGR numpy array."""
+    """Load an image (path or raw bytes) as a BGR numpy array, size-clamped."""
     if isinstance(path_or_bytes, (bytes, bytearray)):
         arr = np.frombuffer(path_or_bytes, dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -19,7 +39,7 @@ def load_bgr(path_or_bytes) -> np.ndarray:
         img = cv2.imread(str(path_or_bytes), cv2.IMREAD_COLOR)
     if img is None:
         raise ValueError("Could not decode image.")
-    return img
+    return _clamp_decoded(img)
 
 
 def _order_points(pts: np.ndarray) -> np.ndarray:
@@ -84,8 +104,12 @@ def enhance_for_ocr(img: np.ndarray) -> np.ndarray:
     """Upscale small images and boost contrast; returns BGR for PaddleOCR."""
     h, w = img.shape[:2]
     if w < 1200:
-        scale = 1200.0 / w
-        img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_CUBIC)
+        # Bound the upscale so the result stays within the pixel budget — a very
+        # tall, thin image must not be amplified without limit.
+        scale = min(1200.0 / w, (MAX_PIXELS / max(1, h * w)) ** 0.5)
+        if scale > 1.0:
+            img = cv2.resize(img, (int(w * scale), int(h * scale)),
+                             interpolation=cv2.INTER_CUBIC)
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
     l = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(l)

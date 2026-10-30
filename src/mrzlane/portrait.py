@@ -15,16 +15,38 @@ import os
 import cv2
 import numpy as np
 
-_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "models",
-                           "face_detection_yunet_2023mar.onnx")
+# YuNet face detector (Apache-2.0, ~230 KB). Downloaded once to a user cache on
+# first use, mirroring how PaddleOCR fetches its models — the repository ships no
+# model weights.
+_MODEL_NAME = "face_detection_yunet_2023mar.onnx"
+_MODEL_URL = (
+    "https://github.com/opencv/opencv_zoo/raw/main/models/"
+    "face_detection_yunet/" + _MODEL_NAME
+)
+_CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "mrzlane")
 _DETECTOR = None
+
+
+def _ensure_model() -> str:
+    # Allow an explicit override, else use the per-user cache.
+    override = os.environ.get("MRZLANE_YUNET_PATH")
+    if override and os.path.exists(override):
+        return override
+    path = os.path.join(_CACHE_DIR, _MODEL_NAME)
+    if not os.path.exists(path):
+        import urllib.request
+        os.makedirs(_CACHE_DIR, exist_ok=True)
+        tmp = path + ".part"
+        urllib.request.urlretrieve(_MODEL_URL, tmp)
+        os.replace(tmp, path)
+    return path
 
 
 def _detector() -> "cv2.FaceDetectorYN":
     global _DETECTOR
     if _DETECTOR is None:
         _DETECTOR = cv2.FaceDetectorYN.create(
-            os.path.abspath(_MODEL_PATH), "", (320, 320),
+            _ensure_model(), "", (320, 320),
             score_threshold=0.6, nms_threshold=0.3, top_k=50,
         )
     return _DETECTOR
